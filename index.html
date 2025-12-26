@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Productivity Tracker</title>
+
+<style>
+  body { font-family: sans-serif; padding: 10px; max-width: 450px; margin: auto; }
+  h2 { margin-bottom: 5px; }
+  .section { margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  input[type="number"] { width: 30%; padding: 6px; }
+  input[type="time"] { width: 33%; padding: 6px; }
+  button { width: 100%; padding: 10px; margin-top: 10px; }
+  .entryBox { padding: 8px; border: 1px solid #ddd; margin-top: 8px; border-radius: 5px; }
+  .resultBox { padding: 6px; margin-bottom: 8px; font-weight: bold; text-align: center; }
+</style>
+
+</head>
+<body>
+
+<h2>📊 Productivity Tracker</h2>
+
+<!-- INPUT SECTION -->
+<div class="section">
+
+  <!-- TOTAL PERFORMANCE (HERE) -->
+  <div id="totalResult"></div>
+
+  <h4>Pick Racks (46/hr)</h4>
+  <div class="row">
+    <input type="number" id="racksQty" placeholder="Qty">
+    <input type="time" id="racksStart">
+    <input type="time" id="racksEnd">
+  </div>
+
+  <h4>Pick Bulk (36/hr)</h4>
+  <div class="row">
+    <input type="number" id="bulkQty" placeholder="Qty">
+    <input type="time" id="bulkStart">
+    <input type="time" id="bulkEnd">
+  </div>
+
+  <button onclick="addEntry()">Add Entry</button>
+</div>
+
+<!-- ENTRIES LIST -->
+<h3>Entries</h3>
+<div id="entries"></div>
+
+<script>
+let allEntries = [];
+
+function timeDiff(start, end) {
+  if (!start || !end) return 0;
+  const s = new Date("1970-01-01T" + start + "Z");
+  const e = new Date("1970-01-01T" + end + "Z");
+  const diff = (e - s) / 60000;
+  return diff > 0 ? diff : 0;
+}
+
+function getPercent(qty, mins, rate) {
+  if (mins <= 0 || qty <= 0) return null;
+  const expected = (rate / 60) * mins;
+  return Math.round((qty / expected) * 100);
+}
+
+function colorize(percent) {
+  if (percent === null) return "gray";
+  return percent < 90 ? "red" : "lightgreen";
+}
+
+function addEntry() {
+  const rQty = parseFloat(document.getElementById("racksQty").value) || 0;
+  const rStart = document.getElementById("racksStart").value;
+  const rEnd = document.getElementById("racksEnd").value;
+  const rMin = timeDiff(rStart, rEnd);
+  const rPercent = getPercent(rQty, rMin, 46);
+
+  const bQty = parseFloat(document.getElementById("bulkQty").value) || 0;
+  const bStart = document.getElementById("bulkStart").value;
+  const bEnd = document.getElementById("bulkEnd").value;
+  const bMin = timeDiff(bStart, bEnd);
+  const bPercent = getPercent(bQty, bMin, 36);
+
+  const entry = { rQty, rStart, rEnd, rMin, rPercent, bQty, bStart, bEnd, bMin, bPercent };
+  allEntries.push(entry);
+
+  renderEntries();
+  calculateTotals();
+
+  document.getElementById("racksQty").value = "";
+  document.getElementById("racksStart").value = "";
+  document.getElementById("racksEnd").value = "";
+  document.getElementById("bulkQty").value = "";
+  document.getElementById("bulkStart").value = "";
+  document.getElementById("bulkEnd").value = "";
+}
+
+function renderEntries() {
+  const container = document.getElementById("entries");
+  container.innerHTML = "";
+
+  allEntries.forEach((e, i) => {
+    const div = document.createElement("div");
+    div.className = "entryBox";
+
+    let html = `<strong>Entry ${i + 1}</strong><br>`;
+
+    if (e.rPercent !== null) {
+      html += `<div style="background:${colorize(e.rPercent)};padding:6px;margin-top:4px;">
+        Racks: ${e.rQty} picks<br>
+        Time: ${e.rStart} – ${e.rEnd} (${e.rMin} min)<br>
+        → ${e.rPercent}%
+      </div>`;
+    }
+
+    if (e.bPercent !== null) {
+      html += `<div style="background:${colorize(e.bPercent)};padding:6px;margin-top:4px;">
+        Bulk: ${e.bQty} picks<br>
+        Time: ${e.bStart} – ${e.bEnd} (${e.bMin} min)<br>
+        → ${e.bPercent}%
+      </div>`;
+    }
+
+    if (e.rPercent === null && e.bPercent === null) {
+      html += `<div style="color:gray;">No valid data</div>`;
+    }
+
+    div.innerHTML = html;
+    container.appendChild(div);
+  });
+}
+
+function calculateTotals() {
+  let totalRacksQty = 0, totalRacksMin = 0;
+  let totalBulkQty = 0, totalBulkMin = 0;
+
+  allEntries.forEach(e => {
+    totalRacksQty += e.rQty;
+    totalRacksMin += e.rMin;
+    totalBulkQty += e.bQty;
+    totalBulkMin += e.bMin;
+  });
+
+  // Weighted totals
+  const racksPercent = getPercent(totalRacksQty, totalRacksMin, 46);
+  const bulkPercent = getPercent(totalBulkQty, totalBulkMin, 36);
+
+  let html = "";
+
+  if (racksPercent !== null) {
+    html += `<div class="resultBox" style="background:${colorize(racksPercent)};">
+      Total Pick Racks: ${racksPercent}%
+    </div>`;
+  }
+
+  if (bulkPercent !== null) {
+    html += `<div class="resultBox" style="background:${colorize(bulkPercent)};">
+      Total Pick Bulk: ${bulkPercent}%
+    </div>`;
+  }
+
+  if (html === "") html = `<div class="resultBox">No valid entries yet</div>`;
+
+  document.getElementById("totalResult").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
